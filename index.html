@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+Mostrar menos
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cronograma TF — Sistema Inteligente Soporte Nivel 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0f1117;
+    --surface:   #1a1d27;
+    --surface2:  #22263a;
+    --border:    #2e3250;
+    --text:      #e8eaf6;
+    --muted:     #8b90b0;
+    --done:      #22c55e;
+    --done-bg:   #14532d33;
+    --active:    #3b82f6;
+    --active-bg: #1e3a5f55;
+    --warn:      #f59e0b;
+    --warn-bg:   #451a0344;
+    --pending:   #6b7280;
+    --pending-bg:#1f212a;
+    --milestone: #a855f7;
+    --accent:    #6366f1;
+    --radius:    10px;
+    --radius-sm: 6px;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .header h1 {
+    font-size: clamp(1.1rem, 3vw, 1.6rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+  .header p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  /* ── Status card ── */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stat-card .label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .stat-card .value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .stat-card .sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .stat-card.highlight {
+    border-color: var(--active);
+    background: var(--active-bg);
+  }
+  .stat-card.highlight .value { color: #93c5fd; }
+  /* ── Overall progress bar ── */
+  .overall-progress {
+    max-width: 1200px;
+    margin: 0 auto 36px;
+  }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .progress-header span { font-size: 0.82rem; color: var(--muted); }
+  .progress-header strong { font-size: 0.9rem; color: #fff; }
+  .progress-track {
+    height: 10px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent), var(--active));
+    transition: width 0.6s ease;
+  }
+  /* ── Phase sections ── */
+  .phases {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .phase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .phase-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .phase-header:hover { background: var(--surface2); }
+  .phase-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 9px;
+    border-radius: 99px;
+    white-space: nowrap;
+  }
+  .badge-done    { background: var(--done-bg);    color: var(--done);    border: 1px solid #16a34a44; }
+  .badge-active  { background: var(--active-bg);  color: #93c5fd;        border: 1px solid #3b82f644; }
+  .badge-pending { background: var(--pending-bg); color: var(--pending); border: 1px solid #4b556344; }
+  .badge-parallel{ background: #3b0764aa;         color: #d8b4fe;        border: 1px solid #7e22ce44; }
+  .phase-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+    min-width: 0;
+  }
+  .phase-dates {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .phase-chevron {
+    font-size: 0.8rem;
+    color: var(--muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .phase-card.collapsed .phase-chevron { transform: rotate(-90deg); }
+  .phase-progress-bar {
+    height: 3px;
+    background: var(--border);
+  }
+  .phase-progress-fill {
+    height: 100%;
+    border-radius: 0 2px 2px 0;
+  }
+  .fill-done    { background: var(--done); }
+  .fill-active  { background: linear-gradient(90deg, var(--accent), var(--active)); }
+  .fill-pending { background: var(--pending); }
+  .fill-parallel{ background: var(--milestone); }
+  /* ── Tasks ── */
+  .tasks {
+    padding: 0;
+  }
+  .phase-card.collapsed .tasks { display: none; }
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    transition: background 0.15s;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row:hover { background: var(--surface2); }
+  .task-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-done    { background: var(--done); box-shadow: 0 0 6px #22c55e66; }
+  .dot-active  { background: var(--active); box-shadow: 0 0 8px #3b82f688; animation: pulse 1.6s infinite; }
+  .dot-pending { background: var(--pending); }
+  .dot-milestone { background: var(--milestone); box-shadow: 0 0 6px #a855f766; border-radius: 2px; transform: rotate(45deg); }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 4px #3b82f688; }
+    50%      { box-shadow: 0 0 12px #3b82f6cc; }
+  }
+  .task-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .task-row.task-done .task-name { color: var(--muted); text-decoration: line-through; text-decoration-color: #4b556388; }
+  .task-row.task-active .task-name { color: #fff; font-weight: 500; }
+  .task-row.task-milestone .task-name { color: #d8b4fe; font-style: italic; }
+  .task-dates {
+    font-size: 0.7rem;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .task-status-tag {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tag-done    { background: var(--done-bg);    color: var(--done); }
+  .tag-active  { background: var(--active-bg);  color: #93c5fd; }
+  .tag-pending { background: var(--pending-bg); color: var(--pending); }
+  .tag-milestone { background: #3b076455; color: #d8b4fe; }
+  /* ── Today marker stripe ── */
+  .today-banner {
+    max-width: 1200px;
+    margin: 0 auto 28px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #1e3a5f55, #0f1117);
+    border: 1px solid var(--active);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82rem;
+    color: #93c5fd;
+  }
+  .today-dot {
+    width: 10px; height: 10px;
+    background: var(--active);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #3b82f6;
+    flex-shrink: 0;
+    animation: pulse 1.6s infinite;
+  }
+  /* ── Timeline mini bar ── */
+  .timeline-section {
+    max-width: 1200px;
+    margin: 0 auto 32px;
+  }
+  .timeline-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .timeline-bar {
+    position: relative;
+    height: 40px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    overflow: visible;
+  }
+  .tl-phase {
+    position: absolute;
+    top: 4px;
+    height: 32px;
+    border-radius: 4px;
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    overflow: hidden;
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    cursor: default;
+  }
+  .tl-phase:hover { opacity: 1; z-index: 10; }
+  .tl-today {
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--active);
+    box-shadow: 0 0 8px #3b82f6;
+    z-index: 20;
+  }
+  .tl-today::before {
+    content: 'Hoy';
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    color: #93c5fd;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 0 4px;
+  }
+  /* ── Footer ── */
+  .footer {
+    max-width: 1200px;
+    margin: 40px auto 0;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .task-dates { display: none; }
+    .phase-dates { display: none; }
+    .tl-phase { font-size: 0; }
+  }
+</style>
+</head>
+<body>
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const TODAY = (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
+const PROJECT_START = new Date('2026-03-26');
+const PROJECT_END   = new Date('2026-11-28');
+function d(s) { return new Date(s); }
+const phases = [
+  {
+    id: 1,
+    name: 'Fase 1 — Análisis y diseño',
+    start: d('2026-03-26'), end: d('2026-04-29'),
+    tasks: [
+      { name: 'Revisión bibliográfica: NLP, LLM y RAG aplicados a soporte', start: d('2026-03-26'), end: d('2026-04-01') },
+      { name: 'Relevamiento de requisitos funcionales y no funcionales',     start: d('2026-04-01'), end: d('2026-04-08') },
+      { name: 'Definición del caso de estudio: dominio, alcance y corpus',   start: d('2026-04-08'), end: d('2026-04-12') },
+      { name: 'Definición de módulos, interfaces y contratos de API',        start: d('2026-04-12'), end: d('2026-04-15') },
+      { name: 'Diseño de arquitectura del sistema y flujo de integración con JSM', start: d('2026-04-15'), end: d('2026-04-22') },
+      { name: 'Diseño de la base de conocimiento: estructura, categorías y criterios de chunking', start: d('2026-04-22'), end: d('2026-04-25') },
+      { name: 'Definición de métricas de evaluación y criterios de éxito',   start: d('2026-04-26'), end: d('2026-04-29') },
+    ]
+  },
+  {
+    id: 2,
+    name: 'Fase 2 — Configuración del entorno',
+    start: d('2026-04-29'), end: d('2026-05-23'),
+    tasks: [
+      { name: 'Configuración de cuenta JSM, Confluence y repositorio GitHub', start: d('2026-04-29'), end: d('2026-05-01') },
+      { name: 'Configuración del entorno de desarrollo e infraestructura base', start: d('2026-05-01'), end: d('2026-05-08') },
+      { name: 'Conexión y prueba inicial con API de OpenAI (LLM + embeddings)', start: d('2026-05-08'), end: d('2026-05-09') },
+      { name: 'Construcción de la base de conocimiento y dataset de evaluación', start: d('2026-05-09'), end: d('2026-05-23') },
+      { name: 'HITO: Base de conocimiento y tickets validados y entorno funcionando', start: d('2026-04-29'), end: d('2026-04-30'), milestone: true },
+    ]
+  },
+  {
+    id: 3,
+    name: 'Fase 3 — Integración con plataforma ITSM',
+    start: d('2026-05-23'), end: d('2026-06-14'),
+    tasks: [
+      { name: 'Recepción y validación de webhooks desde JSM',               start: d('2026-05-23'), end: d('2026-05-30') },
+      { name: 'Publicación de respuestas como comentarios en tickets vía API JSM', start: d('2026-05-30'), end: d('2026-06-05') },
+      { name: 'Gestión de estados de tickets y asignación a agentes vía API JSM',  start: d('2026-06-05'), end: d('2026-06-12') },
+      { name: 'Construcción del módulo cliente Confluence',                  start: d('2026-06-12'), end: d('2026-06-14') },
+      { name: 'HITO: comunicación con APIs correcta',                        start: d('2026-06-14'), end: d('2026-06-14'), milestone: true },
+    ]
+  },
+  {
+    id: 4,
+    name: 'Fase 4 — Desarrollo backend',
+    start: d('2026-06-14'), end: d('2026-10-03'),
+    tasks: [
+      { name: 'Desarrollo del módulo de análisis y clasificación semántica',          start: d('2026-06-14'), end: d('2026-06-21') },
+      { name: 'Testing del módulo de análisis y clasificación semántica',             start: d('2026-06-21'), end: d('2026-06-24') },
+      { name: 'Desarrollo de chunking, generación de embeddings y carga en DB vectorial', start: d('2026-06-24'), end: d('2026-07-08') },
+      { name: 'Testing de indexación y consistencia de embeddings',                   start: d('2026-07-08'), end: d('2026-07-11') },
+      { name: 'Desarrollo de vectorización de consultas, búsqueda semántica y recuperación', start: d('2026-07-11'), end: d('2026-07-27') },
+      { name: 'Testing de recuperación semántica',                                    start: d('2026-07-27'), end: d('2026-08-01') },
+      { name: 'Desarrollo de prompt contextualizado, llamada al LLM y lógica de umbral', start: d('2026-08-01'), end: d('2026-08-10') },
+      { name: 'Testing de calidad de respuestas con contexto enriquecido',            start: d('2026-08-10'), end: d('2026-08-13') },
+      { name: 'Integración del flujo: análisis, RAG y generación respuesta',          start: d('2026-08-13'), end: d('2026-08-19') },
+      { name: 'Testing de integración backend',                                       start: d('2026-08-19'), end: d('2026-08-22') },
+      { name: 'Mecanismo de debouncing con Redis y gestión del historial conversacional', start: d('2026-08-22'), end: d('2026-08-29') },
+      { name: 'Módulo de escalado automático a agente humano',                        start: d('2026-08-29'), end: d('2026-09-03') },
+      { name: 'Módulo de registro de interacciones en PostgreSQL',                    start: d('2026-09-03'), end: d('2026-09-12') },
+      { name: 'API REST interna: endpoints de consulta, estado y métricas',           start: d('2026-09-13'), end: d('2026-09-22') },
+      { name: 'Pruebas de integración end-to-end del flujo completo',                 start: d('2026-09-22'), end: d('2026-10-03') },
+      { name: 'HITO: flujo end to end ticket y respuesta en JSM operativo',           start: d('2026-10-03'), end: d('2026-10-03'), milestone: true },
+    ]
+  },
+  {
+    id: 5,
+    name: 'Fase 5 — Desarrollo frontend',
+    start: d('2026-10-03'), end: d('2026-10-31'),
+    tasks: [
+      { name: 'Dashboard Angular: estructura, ruteo y conexión con API backend',       start: d('2026-10-03'), end: d('2026-10-17') },
+      { name: 'Visualización de métricas: tasa de resolución, tiempos, distribución de categorías', start: d('2026-10-17'), end: d('2026-10-24') },
+      { name: 'Panel de historial de interacciones y detalle por ticket',              start: d('2026-10-24'), end: d('2026-10-31') },
+      { name: 'HITO: dashboards operativo',                                            start: d('2026-10-31'), end: d('2026-10-31'), milestone: true },
+    ]
+  },
+  {
+    id: 6,
+    name: 'Fase 6 — Testing e integración',
+    start: d('2026-10-31'), end: d('2026-11-15'),
+    tasks: [
+      { name: 'Pruebas de integración por módulo y flujo completo',         start: d('2026-10-31'), end: d('2026-11-08') },
+      { name: 'Pruebas de escalado automático y casos borde',               start: d('2026-11-08'), end: d('2026-11-15') },
+      { name: 'Comparación con baseline de atención manual simulada',       start: d('2026-10-31'), end: d('2026-11-07') },
+      { name: 'Análisis e interpretación de resultados',                    start: d('2026-11-07'), end: d('2026-11-10') },
+    ]
+  },
+  {
+    id: 7,
+    name: 'Fase 7 — Documentación',
+    start: d('2026-03-26'), end: d('2026-11-28'),
+    parallel: true,
+    tasks: [
+      { name: 'Documentación técnica del sistema',             start: d('2026-03-26'), end: d('2026-11-23') },
+      { name: 'Redacción del informe final',                   start: d('2026-03-26'), end: d('2026-11-23') },
+      { name: 'Revisión con asesor y correcciones',            start: d('2026-11-23'), end: d('2026-11-28') },
+      { name: 'HITO: Informe final aprobado por asesor',       start: d('2026-11-28'), end: d('2026-11-28'), milestone: true },
+    ]
+  },
+];
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function taskStatus(t) {
+  if (t.milestone) return 'milestone';
+  if (t.end <= TODAY) return 'done';
+  if (t.start <= TODAY && t.end > TODAY) return 'active';
+  return 'pending';
+}
+function phaseStatus(p) {
+  if (p.end <= TODAY) return 'done';
+  if (p.start <= TODAY) return 'active';
+  return 'pending';
+}
+function daysBetween(a, b) {
+  return Math.round((b - a) / 86400000);
+}
+function fmt(dt) {
+  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+function phaseProgress(p) {
+  const total = daysBetween(p.start, p.end);
+  if (total === 0) return 100;
+  if (TODAY < p.start) return 0;
+  if (TODAY >= p.end) return 100;
+  return Math.round(daysBetween(p.start, TODAY) / total * 100);
+}
+function overallProgress() {
+  const total = daysBetween(PROJECT_START, PROJECT_END);
+  if (TODAY <= PROJECT_START) return 0;
+  if (TODAY >= PROJECT_END) return 100;
+  return Math.round(daysBetween(PROJECT_START, TODAY) / total * 100);
+}
+function currentPhase() {
+  return phases.find(p => p.start <= TODAY && p.end > TODAY && !p.parallel) || null;
+}
+function currentTask() {
+  for (const p of phases) {
+    for (const t of p.tasks) {
+      if (!t.milestone && t.start <= TODAY && t.end > TODAY) return { phase: p, task: t };
+    }
+  }
+  return null;
+}
+// ─────────────────────────────────────────────
+// PHASE COLORS (for timeline)
+// ─────────────────────────────────────────────
+const phaseColors = [
+  '#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444','#a855f7'
+];
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const pct = overallProgress();
+  const cp  = currentPhase();
+  const ct  = currentTask();
+  const daysLeft = daysBetween(TODAY, PROJECT_END);
+  // ── Top status cards
+  const grid = document.getElementById('status-grid');
+  const cards = [
+    { label: 'Fecha actual', value: fmt(TODAY), sub: `Día ${daysBetween(PROJECT_START, TODAY) + 1} de 157`, highlight: true },
+    { label: 'Fase activa',  value: cp ? cp.name.replace(/^Fase \d+ — /, '') : 'Entre fases', sub: cp ? `${fmt(cp.start)} → ${fmt(cp.end)}` : '—' },
+    { label: 'Tarea activa', value: ct ? ct.task.name.slice(0, 42) + (ct.task.name.length > 42 ? '…' : '') : '—', sub: ct ? `Finaliza: ${fmt(ct.task.end)}` : '—' },
+    { label: 'Progreso general', value: pct + '%', sub: `${daysLeft} días hasta el fin del proyecto` },
+    { label: 'Días restantes', value: daysLeft + ' días', sub: `Entrega: ${fmt(PROJECT_END)}` },
+    { label: 'Tarea: días restantes', value: ct ? daysBetween(TODAY, ct.task.end) + ' días' : '—', sub: ct ? `hasta "${ct.task.name.slice(0,30)}…"` : '—' },
+  ];
+  cards.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'stat-card' + (c.highlight ? ' highlight' : '');
+    el.innerHTML = `<span class="label">${c.label}</span><span class="value">${c.value}</span><span class="sub">${c.sub}</span>`;
+    grid.appendChild(el);
+  });
+  // ── Today banner
+  document.getElementById('today-banner').innerHTML =
+    `<div class="today-dot"></div>
+     <span><strong>Hoy es ${fmt(TODAY)}</strong> — Día ${daysBetween(PROJECT_START, TODAY) + 1} de 157 — Proyecto: <strong>${pct}% completado</strong> — ${daysLeft} días hasta la entrega final</span>`;
+  // ── Overall progress bar
+  document.getElementById('overall-fill').style.width = pct + '%';
+  document.getElementById('overall-pct').textContent = pct + '%';
+  // ── Timeline mini bar
+  const tlBar = document.getElementById('timeline-bar');
+  const totalDays = daysBetween(PROJECT_START, PROJECT_END);
+  phases.forEach((p, i) => {
+    const leftPct  = daysBetween(PROJECT_START, p.start) / totalDays * 100;
+    const widthPct = daysBetween(p.start, p.end) / totalDays * 100;
+    const div = document.createElement('div');
+    div.className = 'tl-phase';
+    div.style.left  = leftPct  + '%';
+    div.style.width = Math.max(widthPct, 0.5) + '%';
+    div.style.background = phaseColors[i] + 'cc';
+    div.title = p.name + ': ' + fmt(p.start) + ' – ' + fmt(p.end);
+    div.textContent = 'F' + p.id;
+    tlBar.appendChild(div);
+  });
+  // Today marker
+  const todayPct = daysBetween(PROJECT_START, TODAY) / totalDays * 100;
+  const marker = document.createElement('div');
+  marker.className = 'tl-today';
+  marker.style.left = todayPct + '%';
+  tlBar.appendChild(marker);
+  // ── Footer date
+  const fdate = document.getElementById('footer-date');
+  if (fdate) fdate.textContent = TODAY.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+  // ── Phases
+  const phasesEl = document.getElementById('phases');
+  phases.forEach((p, pi) => {
+    const status = phaseStatus(p);
+    const pPct   = phaseProgress(p);
+    const badgeClass = p.parallel ? 'badge-parallel' : (status === 'done' ? 'badge-done' : status === 'active' ? 'badge-active' : 'badge-pending');
+    const badgeLabel = p.parallel ? 'Paralela' : (status === 'done' ? 'Completada' : status === 'active' ? 'En progreso' : 'Pendiente');
+    const fillClass  = p.parallel ? 'fill-parallel' : (status === 'done' ? 'fill-done' : status === 'active' ? 'fill-active' : 'fill-pending');
+    const card = document.createElement('div');
+    card.className = 'phase-card' + (status === 'pending' && !p.parallel ? ' collapsed' : '');
+    card.innerHTML = `
+      <div class="phase-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="phase-badge ${badgeClass}">${badgeLabel}</span>
+        <span class="phase-title">${p.name}</span>
+        <span class="phase-dates">${fmt(p.start)} – ${fmt(p.end)}</span>
+        <span class="phase-chevron">▼</span>
+      </div>
+      <div class="phase-progress-bar"><div class="phase-progress-fill ${fillClass}" style="width:${pPct}%"></div></div>
+      <div class="tasks" id="tasks-${pi}"></div>
+    `;
+    phasesEl.appendChild(card);
+    const tasksEl = card.querySelector(`#tasks-${pi}`);
+    p.tasks.forEach(t => {
+      const ts = taskStatus(t);
+      const row = document.createElement('div');
+      const rowClass = ts === 'done' ? 'task-done' : ts === 'active' ? 'task-active' : ts === 'milestone' ? 'task-milestone' : '';
+      const dotClass = ts === 'done' ? 'dot-done' : ts === 'active' ? 'dot-active' : ts === 'milestone' ? 'dot-milestone' : 'dot-pending';
+      const tagClass = ts === 'done' ? 'tag-done' : ts === 'active' ? 'tag-active' : ts === 'milestone' ? 'tag-milestone' : 'tag-pending';
+      const tagLabel = ts === 'done' ? '✓ Listo' : ts === 'active' ? '▶ Activa' : ts === 'milestone' ? '◆ Hito' : '◦ Pendiente';
+      const endLabel = t.start.getTime() === t.end.getTime()
+        ? fmt(t.start)
+        : `${fmt(t.start)} – ${fmt(t.end)}`;
+      row.className = `task-row ${rowClass}`;
+      row.innerHTML = `
+        <span class="task-dot ${dotClass}"></span>
+        <span class="task-name">${t.name}</span>
+        <span class="task-dates">${endLabel}</span>
+        <span class="task-status-tag ${tagClass}">${tagLabel}</span>
+      `;
+      tasksEl.appendChild(row);
+    });
+  });
+});
+</script>
+<!-- ── MARKUP ── -->
+<div class="header">
+  <h1>Trabajo Final — Sistema Inteligente de Soporte Nivel 1</h1>
+  <p>Cronograma de proyecto · 26 mar 2026 – 28 nov 2026 · 157 días</p>
+</div>
+<div id="today-banner" class="today-banner"></div>
+<div id="status-grid" class="status-grid"></div>
+<div class="overall-progress">
+  <div class="progress-header">
+    <span>Progreso general del proyecto</span>
+    <strong id="overall-pct">0%</strong>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="overall-fill" style="width:0%"></div>
+  </div>
+</div>
+<div class="timeline-section">
+  <div class="timeline-title">Vista general del cronograma</div>
+  <div class="timeline-bar" id="timeline-bar"></div>
+</div>
+<div class="phases" id="phases"></div>
+<div class="footer">
+  Generado automáticamente · Actualizado al <span id="footer-date"></span>
+</div>
+</body>
